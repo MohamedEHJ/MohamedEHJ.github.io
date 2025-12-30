@@ -216,7 +216,8 @@
     <!-- Boutons de navigation -->
     <div class="nav-buttons">
         <button class="nav-btn" id="globalViewBtn" title="Vue générale">🌍</button>
-        <button class="nav-btn" id="myLocationBtn" title="Ma position">
+        <button class="nav-btn" id="manualPointBtn" title="Point manuel" style="display: none;">📍</button>
+        <button class="nav-btn" id="myLocationBtn" title="Position GPS">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                 <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
             </svg>
@@ -255,10 +256,13 @@
         const meccaMarker = L.marker([MECCA_LAT, MECCA_LNG], {icon: meccaIcon}).addTo(map)
             .bindPopup("La Mecque (Kaaba)");
 
-        // Variables pour le placement manuel
+        // Variables pour le placement manuel et GPS
         let manualPlaceMode = false;
-        let userMarker = null;
-        let qiblaLine = null;
+        let gpsMarker = null;
+        let manualMarker = null;
+        let gpsLine = null;
+        let manualLine = null;
+        let hasGpsLocation = false;
 
         // Fonction de succès de géolocalisation
         function onLocationFound(position) {
@@ -268,15 +272,16 @@
 
             // Mettre à jour le statut
             document.getElementById('status').innerText = "Direction trouvée !";
+            hasGpsLocation = true;
 
-            // 1. Ajouter le marqueur de l'utilisateur
-            userMarker = L.marker(userLatLng).addTo(map)
-                .bindPopup("Vous êtes ici")
+            // 1. Ajouter le marqueur GPS de l'utilisateur
+            gpsMarker = L.marker(userLatLng).addTo(map)
+                .bindPopup("Position GPS")
                 .openPopup();
 
             // 2. Créer une ligne (Polyline) entre l'utilisateur et la Mecque
             // Note: C'est une ligne droite visuelle sur la projection Mercator.
-            qiblaLine = L.polyline([userLatLng, [MECCA_LAT, MECCA_LNG]], {
+            gpsLine = L.polyline([userLatLng, [MECCA_LAT, MECCA_LNG]], {
                 color: 'green',
                 weight: 5,
                 opacity: 0.7,
@@ -297,22 +302,22 @@
         }
         // Fonction pour placer un point manuellement
         function placeUserPoint(latlng) {
-            // Supprimer l'ancien marqueur et ligne s'ils existent
-            if (userMarker) {
-                map.removeLayer(userMarker);
+            // Supprimer l'ancien marqueur manuel et ligne s'ils existent
+            if (manualMarker) {
+                map.removeLayer(manualMarker);
             }
-            if (qiblaLine) {
-                map.removeLayer(qiblaLine);
+            if (manualLine) {
+                map.removeLayer(manualLine);
             }
 
-            // Créer le nouveau marqueur
-            userMarker = L.marker(latlng).addTo(map)
+            // Créer le nouveau marqueur manuel
+            manualMarker = L.marker(latlng).addTo(map)
                 .bindPopup("Point placé manuellement")
                 .openPopup();
 
             // Créer la ligne vers la Mecque
-            qiblaLine = L.polyline([latlng, [MECCA_LAT, MECCA_LNG]], {
-                color: 'green',
+            manualLine = L.polyline([latlng, [MECCA_LAT, MECCA_LNG]], {
+                color: 'blue',
                 weight: 5,
                 opacity: 0.7,
                 dashArray: '10, 10'
@@ -324,6 +329,9 @@
 
             // Mettre à jour le statut
             document.getElementById('status').innerText = "Point placé - Direction vers la Mecque";
+
+            // Afficher le bouton du point manuel
+            document.getElementById('manualPointBtn').style.display = 'flex';
         }
 
         // Gestionnaire du bouton de placement manuel
@@ -356,25 +364,41 @@
             }
         });
 
-        // Gestionnaire du bouton "Ma position"
+        // Gestionnaire du bouton "Position GPS"
         const myLocationBtn = document.getElementById('myLocationBtn');
         myLocationBtn.addEventListener('click', function() {
-            if (userMarker) {
-                // Zoomer sur la position de l'utilisateur
-                const userLatLng = userMarker.getLatLng();
-                map.setView(userLatLng, 15);
-                userMarker.openPopup();
+            if (gpsMarker) {
+                // Zoomer sur la position GPS
+                const gpsLatLng = gpsMarker.getLatLng();
+                map.setView(gpsLatLng, 15);
+                gpsMarker.openPopup();
             } else {
-                document.getElementById('status').innerText = "Aucune position trouvée";
+                document.getElementById('status').innerText = "Aucune position GPS trouvée";
+            }
+        });
+
+        // Gestionnaire du bouton "Point manuel"
+        const manualPointBtn = document.getElementById('manualPointBtn');
+        manualPointBtn.addEventListener('click', function() {
+            if (manualMarker) {
+                // Zoomer sur le point manuel
+                const manualLatLng = manualMarker.getLatLng();
+                map.setView(manualLatLng, 15);
+                manualMarker.openPopup();
             }
         });
 
         // Gestionnaire du bouton "Vue générale"
         const globalViewBtn = document.getElementById('globalViewBtn');
         globalViewBtn.addEventListener('click', function() {
-            if (userMarker && qiblaLine) {
-                // Afficher la ligne complète entre l'utilisateur et la Mecque
-                const bounds = L.latLngBounds([userMarker.getLatLng(), [MECCA_LAT, MECCA_LNG]]);
+            // Prioriser le point manuel s'il existe, sinon GPS
+            if (manualMarker && manualLine) {
+                // Afficher la ligne complète entre le point manuel et la Mecque
+                const bounds = L.latLngBounds([manualMarker.getLatLng(), [MECCA_LAT, MECCA_LNG]]);
+                map.fitBounds(bounds, { padding: [50, 50] });
+            } else if (gpsMarker && gpsLine) {
+                // Afficher la ligne complète entre la position GPS et la Mecque
+                const bounds = L.latLngBounds([gpsMarker.getLatLng(), [MECCA_LAT, MECCA_LNG]]);
                 map.fitBounds(bounds, { padding: [50, 50] });
             } else {
                 // Vue globale par défaut
