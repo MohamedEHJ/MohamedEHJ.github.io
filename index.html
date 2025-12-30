@@ -1,9 +1,383 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direction Qibla - OSM</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+     
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* La carte doit prendre tout l'écran */
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Statut avec design moderne */
+        #status {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(10px);
+            animation: slideDown 0.5s ease-out;
+        }
+
+        /* Bouton de placement manuel */
+        #manualPlaceBtn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            color: #333;
+            border: 2px solid #e0e0e0;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        #manualPlaceBtn:hover {
+            background: #f5f5f5;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        #manualPlaceBtn:active {
+            transform: translateY(0);
+        }
+
+        #manualPlaceBtn.active {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            border-color: #11998e;
+            box-shadow: 0 4px 15px rgba(17, 153, 142, 0.4);
+        }
+
+        /* Style pour l'icône de la Mecque */
+        .mecca-icon {
+            background: transparent;
+            border: none;
+            text-align: center;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+
+        /* Personnalisation des popups Leaflet */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 2px;
+        }
+
+        .leaflet-popup-content {
+            margin: 12px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .leaflet-popup-tip {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Animation de chargement */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        /* Personnalisation des contrôles de zoom */
+        .leaflet-control-zoom a {
+            border-radius: 8px !important;
+            color: #667eea !important;
+        }
+
+        .leaflet-control-zoom a:first-child {
+            border-radius: 8px 8px 0 0 !important;
+        }
+
+        .leaflet-control-zoom a:last-child {
+            border-radius: 0 0 8px 8px !important;
+        }
+
+        /* Boutons de navigation en bas à droite */
+        .nav-buttons {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .nav-btn {
+            width: 50px;
+            height: 50px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-btn:hover {
+            background: #f5f5f5;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+            transform: scale(1.1);
+        }
+
+        .nav-btn:active {
+            transform: scale(1);
+        }
+
+        /* Style responsive pour mobile */
+        @media (max-width: 768px) {
+            #status {
+                top: 10px;
+                font-size: 12px;
+                padding: 10px 18px;
+                max-width: 80%;
+                text-align: center;
+            }
+
+            #manualPlaceBtn {
+                top: 10px;
+                right: 10px;
+                padding: 8px 16px;
+                font-size: 12px;
+            }
+
+            .nav-buttons {
+                bottom: 20px;
+                right: 15px;
+                gap: 10px;
+            }
+
+            .nav-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
 <body>
-    <h1>Hello World</h1>
-    <p>I'm hosted with GitHub Pages.</p>
-</body>
 
+    <div id="status">Localisation en cours...</div>
+    <button id="manualPlaceBtn">📍 Placer un point</button>
+
+    <!-- Boutons de navigation -->
+    <div class="nav-buttons">
+        <button class="nav-btn" id="globalViewBtn" title="Vue générale">🌍</button>
+        <button class="nav-btn" id="myLocationBtn" title="Ma position">📍</button>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
+    <script>
+        // Coordonnées de la Kaaba (La Mecque)
+        const MECCA_LAT = 21.422487;
+        const MECCA_LNG = 39.826206;
+
+        // Initialisation de la carte (vue par défaut mondiale avant la géoloc)
+        const map = L.map('map').setView([20, 0], 2);
+
+        // Ajout des tuiles OpenStreetMap
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Icône personnalisée pour la Mecque (Optionnel)
+        const meccaIcon = L.divIcon({
+            html: '<div style="font-size: 24px;">🕋</div>',
+            className: 'mecca-icon',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+
+        // Marqueur sur la Mecque
+        const meccaMarker = L.marker([MECCA_LAT, MECCA_LNG], {icon: meccaIcon}).addTo(map)
+            .bindPopup("La Mecque (Kaaba)");
+
+        // Variables pour le placement manuel
+        let manualPlaceMode = false;
+        let userMarker = null;
+        let qiblaLine = null;
+
+        // Fonction de succès de géolocalisation
+        function onLocationFound(position) {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            const userLatLng = [userLat, userLng];
+
+            // Mettre à jour le statut
+            document.getElementById('status').innerText = "Direction trouvée !";
+
+            // 1. Ajouter le marqueur de l'utilisateur
+            userMarker = L.marker(userLatLng).addTo(map)
+                .bindPopup("Vous êtes ici")
+                .openPopup();
+
+            // 2. Créer une ligne (Polyline) entre l'utilisateur et la Mecque
+            // Note: C'est une ligne droite visuelle sur la projection Mercator.
+            qiblaLine = L.polyline([userLatLng, [MECCA_LAT, MECCA_LNG]], {
+                color: 'green',
+                weight: 5,
+                opacity: 0.7,
+                dashArray: '10, 10' // Ligne pointillée
+            }).addTo(map);
+
+            // 3. Ajuster la vue pour voir les deux points
+            const bounds = L.latLngBounds([userLatLng, [MECCA_LAT, MECCA_LNG]]);
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+
+        // Fonction d'erreur
+        function onLocationError(error) {
+            let msg = "Erreur de géolocalisation.";
+            if(error.code === 1) msg = "Vous devez autoriser la géolocalisation.";
+            document.getElementById('status').innerText = msg;
+            console.error(error);
+        }
+        // Fonction pour placer un point manuellement
+        function placeUserPoint(latlng) {
+            // Supprimer l'ancien marqueur et ligne s'ils existent
+            if (userMarker) {
+                map.removeLayer(userMarker);
+            }
+            if (qiblaLine) {
+                map.removeLayer(qiblaLine);
+            }
+
+            // Créer le nouveau marqueur
+            userMarker = L.marker(latlng).addTo(map)
+                .bindPopup("Point placé manuellement")
+                .openPopup();
+
+            // Créer la ligne vers la Mecque
+            qiblaLine = L.polyline([latlng, [MECCA_LAT, MECCA_LNG]], {
+                color: 'green',
+                weight: 5,
+                opacity: 0.7,
+                dashArray: '10, 10'
+            }).addTo(map);
+
+            // Ajuster la vue
+            const bounds = L.latLngBounds([latlng, [MECCA_LAT, MECCA_LNG]]);
+            map.fitBounds(bounds, { padding: [50, 50] });
+
+            // Mettre à jour le statut
+            document.getElementById('status').innerText = "Point placé - Direction vers la Mecque";
+        }
+
+        // Gestionnaire du bouton de placement manuel
+        const manualPlaceBtn = document.getElementById('manualPlaceBtn');
+        manualPlaceBtn.addEventListener('click', function() {
+            manualPlaceMode = !manualPlaceMode;
+
+            if (manualPlaceMode) {
+                this.classList.add('active');
+                this.innerText = "📍 Cliquez sur la carte";
+                document.getElementById('status').innerText = "Cliquez sur la carte pour placer votre position";
+                map.getContainer().style.cursor = 'crosshair';
+            } else {
+                this.classList.remove('active');
+                this.innerText = "📍 Placer un point";
+                map.getContainer().style.cursor = '';
+            }
+        });
+
+        // Gestionnaire de clic sur la carte
+        map.on('click', function(e) {
+            if (manualPlaceMode) {
+                placeUserPoint(e.latlng);
+
+                // Désactiver le mode placement après avoir placé le point
+                manualPlaceMode = false;
+                manualPlaceBtn.classList.remove('active');
+                manualPlaceBtn.innerText = "📍 Placer un point";
+                map.getContainer().style.cursor = '';
+            }
+        });
+
+        // Gestionnaire du bouton "Ma position"
+        const myLocationBtn = document.getElementById('myLocationBtn');
+        myLocationBtn.addEventListener('click', function() {
+            if (userMarker) {
+                // Zoomer sur la position de l'utilisateur
+                const userLatLng = userMarker.getLatLng();
+                map.setView(userLatLng, 15);
+                userMarker.openPopup();
+            } else {
+                document.getElementById('status').innerText = "Aucune position trouvée";
+            }
+        });
+
+        // Gestionnaire du bouton "Vue générale"
+        const globalViewBtn = document.getElementById('globalViewBtn');
+        globalViewBtn.addEventListener('click', function() {
+            if (userMarker && qiblaLine) {
+                // Afficher la ligne complète entre l'utilisateur et la Mecque
+                const bounds = L.latLngBounds([userMarker.getLatLng(), [MECCA_LAT, MECCA_LNG]]);
+                map.fitBounds(bounds, { padding: [50, 50] });
+            } else {
+                // Vue globale par défaut
+                map.setView([20, 0], 2);
+            }
+        });
+
+        // Lancer la géolocalisation
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(onLocationFound, onLocationError);
+        } else {
+            document.getElementById('status').innerText = "Géolocalisation non supportée par ce navigateur.";
+        }
+    </script>
+</body>
 </html>
